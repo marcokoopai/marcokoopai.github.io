@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JWT decode · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>JWT decode</h1>
+  <p class="subtitle">Inspect the header and payload of a JWT. This tool does <strong>not</strong> verify the signature.</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <div class="grow"></div>
+      <button class="btn primary" id="decode">Decode</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <textarea id="input" placeholder="Paste JWT (header.payload.signature)" spellcheck="false"></textarea>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel" id="headerPanel" hidden>
+    <div class="row between" style="margin-bottom:8px"><h2 style="margin:0">Header</h2><button class="btn" data-copy="header">Copy</button></div>
+    <pre id="headerOut"></pre>
+  </div>
+
+  <div class="panel" id="payloadPanel" hidden>
+    <div class="row between" style="margin-bottom:8px"><h2 style="margin:0">Payload</h2><button class="btn" data-copy="payload">Copy</button></div>
+    <pre id="payloadOut"></pre>
+    <div class="status" id="expStatus"></div>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const input = $('#input'), status = $('#status');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  function base64urlDecode(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const bin = atob(s);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+
+  function formatExp(payload) {
+    const exp = payload && payload.exp;
+    if (typeof exp !== 'number') return '';
+    const now = Math.floor(Date.now() / 1000);
+    const date = new Date(exp * 1000).toISOString();
+    const delta = exp - now;
+    if (delta < 0) return 'Expired on ' + date + ' (' + Math.abs(delta) + 's ago)';
+    return 'Expires at ' + date + ' (in ' + delta + 's)';
+  }
+
+  function decode() {
+    const src = input.value.trim();
+    if (!src) { setStatus(''); $('#headerPanel').hidden = true; $('#payloadPanel').hidden = true; return; }
+    const parts = src.split('.');
+    if (parts.length < 2) { setStatus('Not a JWT (expected at least header.payload).', 'err'); return; }
+    try {
+      const header = JSON.parse(base64urlDecode(parts[0]));
+      const payload = JSON.parse(base64urlDecode(parts[1]));
+      $('#headerOut').textContent = JSON.stringify(header, null, 2);
+      $('#payloadOut').textContent = JSON.stringify(payload, null, 2);
+      $('#headerPanel').hidden = false;
+      $('#payloadPanel').hidden = false;
+      const expMsg = formatExp(payload);
+      const expEl = $('#expStatus');
+      expEl.textContent = expMsg;
+      expEl.className = 'status' + (expMsg ? (payload.exp * 1000 < Date.now() ? ' err' : ' ok') : '');
+      setStatus('Decoded ' + parts.length + ' parts' + (parts.length === 3 ? ' (signature not verified).' : '.'), 'ok');
+    } catch (e) {
+      setStatus('Error: ' + e.message, 'err');
+    }
+  }
+
+  $('#decode').onclick = decode;
+  $('#clear').onclick = () => { input.value = ''; setStatus(''); $('#headerPanel').hidden = true; $('#payloadPanel').hidden = true; input.focus(); };
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    const which = btn.getAttribute('data-copy');
+    const text = which === 'header' ? $('#headerOut').textContent : $('#payloadOut').textContent;
+    if (text) copyToClipboard(text);
+  });
+</script>
+</body>
+</html>

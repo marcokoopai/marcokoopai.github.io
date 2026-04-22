@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>marcokoopai · tools</title>
+<meta name="description" content="Personal collection of browser-side web tools. No tracking, no servers.">
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="https://github.com/marcokoopai/marcokoopai.github.io" target="_blank" rel="noopener">GitHub</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>Tools</h1>
+  <p class="subtitle">All tools run entirely in your browser. Nothing you paste leaves this page.</p>
+
+  <div class="tool-grid">
+    <a class="tool-card" href="/tools/json/">
+      <div class="icon">{ }</div>
+      <div class="name">JSON</div>
+      <div class="desc">Format, minify, and validate JSON.</div>
+    </a>
+    <a class="tool-card" href="/tools/base64/">
+      <div class="icon">b64</div>
+      <div class="name">Base64</div>
+      <div class="desc">Encode / decode, UTF-8 safe, URL-safe variant.</div>
+    </a>
+    <a class="tool-card" href="/tools/url-encode/">
+      <div class="icon">%20</div>
+      <div class="name">URL</div>
+      <div class="desc">Encode / decode and parse query strings.</div>
+    </a>
+    <a class="tool-card" href="/tools/jwt-decode/">
+      <div class="icon">JWT</div>
+      <div class="name">JWT decode</div>
+      <div class="desc">Inspect header and payload (no verification).</div>
+    </a>
+    <a class="tool-card" href="/tools/yaml-json/">
+      <div class="icon">⇄</div>
+      <div class="name">YAML ↔ JSON</div>
+      <div class="desc">Convert between YAML and JSON either way.</div>
+    </a>
+    <a class="tool-card" href="/tools/regex/">
+      <div class="icon">/./g</div>
+      <div class="name">Regex</div>
+      <div class="desc">Test patterns with highlight and groups.</div>
+    </a>
+    <a class="tool-card" href="/tools/diff/">
+      <div class="icon">±</div>
+      <div class="name">Diff</div>
+      <div class="desc">Line-by-line diff between two texts.</div>
+    </a>
+    <a class="tool-card" href="/tools/uuid/">
+      <div class="icon">#id</div>
+      <div class="name">UUID</div>
+      <div class="desc">Generate UUID v4, single or bulk.</div>
+    </a>
+  </div>
+</main>
+
+<footer class="site-footer">
+  Static site · <a href="https://github.com/marcokoopai/marcokoopai.github.io">source on GitHub</a>
+</footer>
+
+<script src="/assets/js/common.js"></script>
+</body>
+</html>

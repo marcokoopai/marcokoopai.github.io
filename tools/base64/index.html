@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base64 · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>Base64</h1>
+  <p class="subtitle">UTF-8 safe encode/decode with optional URL-safe variant.</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <label class="field" style="flex:0 0 auto">
+        Mode
+        <select id="mode">
+          <option value="encode" selected>Encode</option>
+          <option value="decode">Decode</option>
+        </select>
+      </label>
+      <label class="field" style="flex:0 0 auto">
+        Variant
+        <select id="variant">
+          <option value="standard" selected>Standard</option>
+          <option value="urlsafe">URL-safe</option>
+        </select>
+      </label>
+      <div class="grow"></div>
+      <button class="btn primary" id="run">Run</button>
+      <button class="btn" id="copy">Copy</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <textarea id="input" placeholder="Input text" spellcheck="false"></textarea>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Output</h2>
+    <textarea id="output" readonly></textarea>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const input = $('#input'), output = $('#output'), status = $('#status');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  function encodeUtf8(s) {
+    const bytes = new TextEncoder().encode(s);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function decodeUtf8(b64) {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  function toUrlSafe(s) { return s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function fromUrlSafe(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    return s;
+  }
+
+  function run() {
+    const mode = $('#mode').value;
+    const variant = $('#variant').value;
+    const src = input.value;
+    if (!src) { output.value = ''; setStatus(''); return; }
+    try {
+      if (mode === 'encode') {
+        let out = encodeUtf8(src);
+        if (variant === 'urlsafe') out = toUrlSafe(out);
+        output.value = out;
+        setStatus('Encoded · ' + out.length + ' chars', 'ok');
+      } else {
+        let s = src.trim();
+        if (variant === 'urlsafe') s = fromUrlSafe(s);
+        output.value = decodeUtf8(s);
+        setStatus('Decoded · ' + output.value.length + ' chars', 'ok');
+      }
+    } catch (e) {
+      output.value = '';
+      setStatus('Error: ' + e.message, 'err');
+    }
+  }
+
+  $('#run').onclick = run;
+  $('#copy').onclick = () => { if (output.value) copyToClipboard(output.value); };
+  $('#clear').onclick = () => { input.value = ''; output.value = ''; setStatus(''); input.focus(); };
+</script>
+</body>
+</html>

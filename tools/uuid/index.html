@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UUID · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>UUID</h1>
+  <p class="subtitle">Generate UUID v4 using <code>crypto.randomUUID()</code>.</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <label class="field" style="flex:0 0 auto; width:140px">
+        Count
+        <input id="count" type="number" min="1" max="1000" value="1">
+      </label>
+      <label class="field" style="flex:0 0 auto">
+        Case
+        <select id="case">
+          <option value="lower" selected>lowercase</option>
+          <option value="upper">UPPERCASE</option>
+          <option value="nohyphen">no hyphens</option>
+        </select>
+      </label>
+      <div class="grow"></div>
+      <button class="btn primary" id="gen">Generate</button>
+      <button class="btn" id="copy">Copy</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <textarea id="out" readonly placeholder="Click Generate to produce UUIDs."></textarea>
+    <div class="status" id="status"></div>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const out = $('#out'), status = $('#status');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  function format(u, mode) {
+    if (mode === 'upper') return u.toUpperCase();
+    if (mode === 'nohyphen') return u.replace(/-/g, '');
+    return u;
+  }
+
+  $('#gen').onclick = () => {
+    const n = Math.max(1, Math.min(1000, parseInt($('#count').value, 10) || 1));
+    const mode = $('#case').value;
+    if (!crypto.randomUUID) { setStatus('crypto.randomUUID() not supported in this browser.', 'err'); return; }
+    const ids = [];
+    for (let i = 0; i < n; i++) ids.push(format(crypto.randomUUID(), mode));
+    out.value = ids.join('\n');
+    setStatus(`Generated ${n} UUID${n === 1 ? '' : 's'}.`, 'ok');
+  };
+  $('#copy').onclick = () => { if (out.value) copyToClipboard(out.value); };
+  $('#clear').onclick = () => { out.value = ''; setStatus(''); };
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YAML ↔ JSON · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>YAML ↔ JSON</h1>
+  <p class="subtitle">Converts using <a href="https://github.com/nodeca/js-yaml" target="_blank" rel="noopener">js-yaml 4.1.0</a>, vendored locally.</p>
+
+  <div class="panel">
+    <div class="row between" style="margin-bottom:8px">
+      <strong>YAML</strong>
+      <div class="row">
+        <button class="btn primary" id="toJson">YAML → JSON</button>
+        <button class="btn" data-copy="yaml">Copy</button>
+        <button class="btn ghost" data-clear="yaml">Clear</button>
+      </div>
+    </div>
+    <textarea id="yamlArea" placeholder='name: example&#10;values:&#10;  - 1&#10;  - 2' spellcheck="false"></textarea>
+  </div>
+
+  <div class="panel">
+    <div class="row between" style="margin-bottom:8px">
+      <strong>JSON</strong>
+      <div class="row">
+        <button class="btn primary" id="toYaml">JSON → YAML</button>
+        <button class="btn" data-copy="json">Copy</button>
+        <button class="btn ghost" data-clear="json">Clear</button>
+      </div>
+    </div>
+    <textarea id="jsonArea" placeholder='{"name":"example","values":[1,2]}' spellcheck="false"></textarea>
+  </div>
+
+  <div class="status" id="status"></div>
+</main>
+
+<script src="/vendor/js-yaml.min.js"></script>
+<script src="/assets/js/common.js"></script>
+<script>
+  const yamlArea = $('#yamlArea'), jsonArea = $('#jsonArea'), status = $('#status');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  $('#toJson').onclick = () => {
+    const src = yamlArea.value;
+    if (!src.trim()) { setStatus(''); return; }
+    try {
+      const obj = jsyaml.load(src);
+      jsonArea.value = JSON.stringify(obj, null, 2);
+      setStatus('Converted YAML → JSON.', 'ok');
+    } catch (e) { setStatus('YAML error: ' + e.message, 'err'); }
+  };
+
+  $('#toYaml').onclick = () => {
+    const src = jsonArea.value;
+    if (!src.trim()) { setStatus(''); return; }
+    try {
+      const obj = JSON.parse(src);
+      yamlArea.value = jsyaml.dump(obj, { indent: 2, lineWidth: 120, noRefs: true });
+      setStatus('Converted JSON → YAML.', 'ok');
+    } catch (e) { setStatus('JSON error: ' + e.message, 'err'); }
+  };
+
+  document.addEventListener('click', (e) => {
+    const c = e.target.closest('[data-copy]');
+    if (c) {
+      const v = (c.getAttribute('data-copy') === 'yaml' ? yamlArea : jsonArea).value;
+      if (v) copyToClipboard(v);
+      return;
+    }
+    const cl = e.target.closest('[data-clear]');
+    if (cl) {
+      const el = cl.getAttribute('data-clear') === 'yaml' ? yamlArea : jsonArea;
+      el.value = '';
+      setStatus('');
+      el.focus();
+    }
+  });
+</script>
+</body>
+</html>

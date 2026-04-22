@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSON · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>JSON</h1>
+  <p class="subtitle">Format, minify, and validate JSON.</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <label class="field" style="flex:0 0 auto">
+        Indent
+        <select id="indent">
+          <option value="2" selected>2 spaces</option>
+          <option value="4">4 spaces</option>
+          <option value="tab">Tab</option>
+        </select>
+      </label>
+      <div class="grow"></div>
+      <button class="btn primary" id="format">Format</button>
+      <button class="btn" id="minify">Minify</button>
+      <button class="btn" id="validate">Validate</button>
+      <button class="btn" id="copy">Copy</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <textarea id="input" placeholder='Paste JSON here, e.g. {"a":1,"b":[2,3]}' spellcheck="false"></textarea>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Output</h2>
+    <textarea id="output" readonly placeholder="Formatted / minified JSON appears here."></textarea>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const input = $('#input');
+  const output = $('#output');
+  const status = $('#status');
+  const indentSel = $('#indent');
+
+  function setStatus(msg, cls) {
+    status.textContent = msg || '';
+    status.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function getIndent() {
+    const v = indentSel.value;
+    if (v === 'tab') return '\t';
+    return parseInt(v, 10);
+  }
+
+  function process(minify) {
+    const src = input.value.trim();
+    if (!src) { output.value = ''; setStatus(''); return; }
+    try {
+      const parsed = JSON.parse(src);
+      output.value = JSON.stringify(parsed, null, minify ? 0 : getIndent());
+      setStatus('Valid JSON · ' + output.value.length + ' chars', 'ok');
+    } catch (e) {
+      output.value = '';
+      const m = /position (\d+)/.exec(e.message);
+      let loc = '';
+      if (m) {
+        const pos = parseInt(m[1], 10);
+        const before = src.slice(0, pos);
+        const line = before.split('\n').length;
+        const col = pos - before.lastIndexOf('\n');
+        loc = ` (line ${line}, col ${col})`;
+      }
+      setStatus('Error: ' + e.message + loc, 'err');
+    }
+  }
+
+  $('#format').onclick = () => process(false);
+  $('#minify').onclick = () => process(true);
+  $('#validate').onclick = () => {
+    const src = input.value.trim();
+    if (!src) { setStatus(''); return; }
+    try { JSON.parse(src); setStatus('Valid JSON · ' + src.length + ' chars', 'ok'); }
+    catch (e) { setStatus('Error: ' + e.message, 'err'); }
+  };
+  $('#copy').onclick = () => { if (output.value) copyToClipboard(output.value); };
+  $('#clear').onclick = () => { input.value = ''; output.value = ''; setStatus(''); input.focus(); };
+</script>
+</body>
+</html>

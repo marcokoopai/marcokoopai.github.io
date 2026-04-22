@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diff · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+<style>
+  #diffView { font-family: var(--mono); font-size: 13px; }
+  .side { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 720px) { .side { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>Diff</h1>
+  <p class="subtitle">Line-by-line diff between two texts.</p>
+
+  <div class="panel">
+    <div class="side">
+      <label class="field">
+        Original
+        <textarea id="a" placeholder="left side" spellcheck="false"></textarea>
+      </label>
+      <label class="field">
+        Changed
+        <textarea id="b" placeholder="right side" spellcheck="false"></textarea>
+      </label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="grow"></div>
+      <button class="btn primary" id="run">Diff</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Output</h2>
+    <pre id="diffView"></pre>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const a = $('#a'), b = $('#b'), status = $('#status'), view = $('#diffView');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  function lcsLines(A, B) {
+    const n = A.length, m = B.length;
+    const dp = Array(n + 1).fill(null).map(() => new Uint32Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) {
+      for (let j = m - 1; j >= 0; j--) {
+        if (A[i] === B[j]) dp[i][j] = dp[i+1][j+1] + 1;
+        else dp[i][j] = Math.max(dp[i+1][j], dp[i][j+1]);
+      }
+    }
+    const ops = [];
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (A[i] === B[j]) { ops.push({ type: 'ctx', text: A[i] }); i++; j++; }
+      else if (dp[i+1][j] >= dp[i][j+1]) { ops.push({ type: 'del', text: A[i] }); i++; }
+      else { ops.push({ type: 'add', text: B[j] }); j++; }
+    }
+    while (i < n) ops.push({ type: 'del', text: A[i++] });
+    while (j < m) ops.push({ type: 'add', text: B[j++] });
+    return ops;
+  }
+
+  function run() {
+    const A = a.value === '' ? [] : a.value.split('\n');
+    const B = b.value === '' ? [] : b.value.split('\n');
+    if (!A.length && !B.length) { view.innerHTML = ''; setStatus(''); return; }
+    const ops = lcsLines(A, B);
+    let adds = 0, dels = 0, html = '';
+    for (const op of ops) {
+      if (op.type === 'add') adds++;
+      if (op.type === 'del') dels++;
+      const prefix = op.type === 'add' ? '+ ' : op.type === 'del' ? '- ' : '  ';
+      html += `<span class="diff-line ${op.type}">${escapeHtml(prefix + op.text)}</span>\n`;
+    }
+    view.innerHTML = html || '<span class="diff-line ctx">(no difference)</span>';
+    setStatus(`+${adds} −${dels}`, adds || dels ? 'ok' : '');
+  }
+
+  $('#run').onclick = run;
+  $('#clear').onclick = () => { a.value = ''; b.value = ''; view.innerHTML = ''; setStatus(''); a.focus(); };
+</script>
+</body>
+</html>

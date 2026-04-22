@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regex · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+<style>
+  #matchView { white-space: pre-wrap; word-break: break-word; font-family: var(--mono); font-size: 13px; }
+  .group-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+  .group-table th, .group-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .group-table th { color: var(--muted); font-weight: 500; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>Regex tester</h1>
+  <p class="subtitle">JavaScript <code>RegExp</code>. Matches highlight live as you type.</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <label class="field grow">
+        Pattern
+        <input id="pattern" type="text" placeholder="\d+" spellcheck="false">
+      </label>
+      <label class="field" style="flex:0 0 auto; width:120px">
+        Flags
+        <input id="flags" type="text" value="g" spellcheck="false">
+      </label>
+    </div>
+    <label class="field">
+      Test string
+      <textarea id="test" placeholder="abc 123 def 456" spellcheck="false"></textarea>
+    </label>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Highlighted</h2>
+    <div id="matchView" class="pre"></div>
+  </div>
+
+  <div class="panel" id="groupsPanel" hidden>
+    <h2 style="margin-top:0">Matches</h2>
+    <table class="group-table" id="groupsTable"></table>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const patternEl = $('#pattern'), flagsEl = $('#flags'), testEl = $('#test');
+  const status = $('#status'), view = $('#matchView');
+  const groupsPanel = $('#groupsPanel'), groupsTable = $('#groupsTable');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  function render() {
+    const p = patternEl.value;
+    const f = flagsEl.value;
+    const s = testEl.value;
+    view.innerHTML = escapeHtml(s);
+    groupsPanel.hidden = true;
+    groupsTable.innerHTML = '';
+    if (!p) { setStatus(''); return; }
+    let re;
+    try { re = new RegExp(p, f.includes('g') ? f : f + 'g'); }
+    catch (e) { setStatus('Regex error: ' + e.message, 'err'); return; }
+
+    const matches = [];
+    let m;
+    let safety = 0;
+    while ((m = re.exec(s)) !== null) {
+      matches.push({ index: m.index, text: m[0], groups: m.slice(1), named: m.groups || null });
+      if (m.index === re.lastIndex) re.lastIndex++;
+      if (++safety > 10000) break;
+    }
+
+    if (!matches.length) { setStatus('No matches.', 'warn'); return; }
+
+    let html = '';
+    let cursor = 0;
+    for (const mm of matches) {
+      html += escapeHtml(s.slice(cursor, mm.index));
+      html += '<span class="mark">' + escapeHtml(mm.text) + '</span>';
+      cursor = mm.index + mm.text.length;
+    }
+    html += escapeHtml(s.slice(cursor));
+    view.innerHTML = html;
+
+    let rows = '<thead><tr><th>#</th><th>Match</th><th>Index</th><th>Groups</th></tr></thead><tbody>';
+    matches.forEach((mm, i) => {
+      const g = mm.groups.length ? mm.groups.map((v, j) => `[${j+1}] ${v === undefined ? '—' : escapeHtml(String(v))}`).join('<br>') : '';
+      const named = mm.named ? '<br>' + Object.entries(mm.named).map(([k,v]) => `${escapeHtml(k)}: ${v === undefined ? '—' : escapeHtml(String(v))}`).join('<br>') : '';
+      rows += `<tr><td>${i+1}</td><td>${escapeHtml(mm.text)}</td><td>${mm.index}</td><td>${g}${named}</td></tr>`;
+    });
+    rows += '</tbody>';
+    groupsTable.innerHTML = rows;
+    groupsPanel.hidden = false;
+    setStatus(matches.length + ' match' + (matches.length === 1 ? '' : 'es'), 'ok');
+  }
+
+  [patternEl, flagsEl, testEl].forEach(el => el.addEventListener('input', render));
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>URL · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>URL encode / decode</h1>
+  <p class="subtitle">Uses <code>encodeURIComponent</code> / <code>decodeURIComponent</code>. Auto-parses query strings.</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <label class="field" style="flex:0 0 auto">
+        Mode
+        <select id="mode">
+          <option value="encode" selected>Encode</option>
+          <option value="decode">Decode</option>
+        </select>
+      </label>
+      <div class="grow"></div>
+      <button class="btn primary" id="run">Run</button>
+      <button class="btn" id="copy">Copy</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <textarea id="input" placeholder="Input" spellcheck="false"></textarea>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="panel">
+    <h2 style="margin-top:0">Output</h2>
+    <textarea id="output" readonly></textarea>
+  </div>
+
+  <div class="panel" id="queryPanel" hidden>
+    <h2 style="margin-top:0">Query parameters</h2>
+    <dl class="kv" id="queryList"></dl>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const input = $('#input'), output = $('#output'), status = $('#status');
+  const queryPanel = $('#queryPanel'), queryList = $('#queryList');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  function parseQuery(s) {
+    const qIdx = s.indexOf('?');
+    const qs = qIdx >= 0 ? s.slice(qIdx + 1) : s;
+    const hashIdx = qs.indexOf('#');
+    const clean = hashIdx >= 0 ? qs.slice(0, hashIdx) : qs;
+    if (!clean.includes('=') && !clean.includes('&')) return null;
+    try {
+      const sp = new URLSearchParams(clean);
+      const entries = Array.from(sp.entries());
+      return entries.length ? entries : null;
+    } catch (_) { return null; }
+  }
+
+  function render() {
+    const mode = $('#mode').value;
+    const src = input.value;
+    if (!src) { output.value = ''; queryPanel.hidden = true; setStatus(''); return; }
+    try {
+      output.value = mode === 'encode' ? encodeURIComponent(src) : decodeURIComponent(src);
+      setStatus((mode === 'encode' ? 'Encoded' : 'Decoded') + ' · ' + output.value.length + ' chars', 'ok');
+      const q = mode === 'decode' ? parseQuery(output.value) : parseQuery(src);
+      if (q) {
+        queryList.innerHTML = '';
+        for (const [k, v] of q) {
+          const dt = document.createElement('dt'); dt.textContent = k;
+          const dd = document.createElement('dd'); dd.textContent = v;
+          queryList.appendChild(dt); queryList.appendChild(dd);
+        }
+        queryPanel.hidden = false;
+      } else {
+        queryPanel.hidden = true;
+      }
+    } catch (e) {
+      output.value = '';
+      queryPanel.hidden = true;
+      setStatus('Error: ' + e.message, 'err');
+    }
+  }
+
+  $('#run').onclick = render;
+  $('#copy').onclick = () => { if (output.value) copyToClipboard(output.value); };
+  $('#clear').onclick = () => { input.value = ''; output.value = ''; queryPanel.hidden = true; setStatus(''); input.focus(); };
+</script>
+</body>
+</html>
