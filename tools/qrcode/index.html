@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR code · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+<style>
+  .qr-layout { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+  @media (max-width: 720px) { .qr-layout { grid-template-columns: 1fr; } }
+  #qrCanvasHost { background: #fff; padding: 12px; border-radius: 8px; display: inline-block; min-width: 272px; min-height: 272px; }
+  #qrCanvasHost canvas, #qrCanvasHost img { display: block; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>QR code</h1>
+  <p class="subtitle">Client-side generator using <a href="https://github.com/davidshimjs/qrcodejs" target="_blank" rel="noopener">qrcodejs</a>. Supports URLs, text, Wi-Fi strings, and more.</p>
+
+  <div class="panel">
+    <div class="qr-layout">
+      <div>
+        <label class="field" style="margin-bottom:10px">
+          Text / URL
+          <textarea id="text" placeholder="https://example.com" spellcheck="false" style="min-height:100px"></textarea>
+        </label>
+        <div class="row" style="margin-bottom:10px">
+          <label class="field" style="flex:0 0 140px">
+            Size
+            <input id="size" type="number" min="64" max="1024" step="16" value="256">
+          </label>
+          <label class="field" style="flex:0 0 140px">
+            Error correction
+            <select id="ecl">
+              <option value="L">L (7%)</option>
+              <option value="M" selected>M (15%)</option>
+              <option value="Q">Q (25%)</option>
+              <option value="H">H (30%)</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="gen">Generate</button>
+          <button class="btn" id="download">Download PNG</button>
+          <button class="btn ghost" id="clear">Clear</button>
+        </div>
+        <div class="status" id="status" style="margin-top:10px"></div>
+      </div>
+      <div>
+        <div id="qrCanvasHost"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="/vendor/qrcode.min.js"></script>
+<script src="/assets/js/common.js"></script>
+<script>
+  const text = $('#text'), sizeEl = $('#size'), eclEl = $('#ecl'), host = $('#qrCanvasHost'), status = $('#status');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  let qr;
+  function generate() {
+    const v = text.value.trim();
+    if (!v) { host.innerHTML = ''; setStatus(''); return; }
+    const size = Math.max(64, Math.min(1024, parseInt(sizeEl.value, 10) || 256));
+    const levels = { L: QRCode.CorrectLevel.L, M: QRCode.CorrectLevel.M, Q: QRCode.CorrectLevel.Q, H: QRCode.CorrectLevel.H };
+    try {
+      host.innerHTML = '';
+      qr = new QRCode(host, { text: v, width: size, height: size, correctLevel: levels[eclEl.value] });
+      setStatus(`Generated ${size}×${size}, ECL ${eclEl.value}, ${v.length} chars input.`, 'ok');
+    } catch (e) {
+      host.innerHTML = '';
+      setStatus('Error: ' + e.message, 'err');
+    }
+  }
+
+  function download() {
+    const canvas = host.querySelector('canvas');
+    const img = host.querySelector('img');
+    let dataUrl;
+    if (canvas) dataUrl = canvas.toDataURL('image/png');
+    else if (img) dataUrl = img.src;
+    else { setStatus('Nothing to download yet.', 'warn'); return; }
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = 'qrcode.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  $('#gen').onclick = generate;
+  $('#download').onclick = download;
+  $('#clear').onclick = () => { text.value = ''; host.innerHTML = ''; setStatus(''); text.focus(); };
+  text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) generate(); });
+</script>
+</body>
+</html>

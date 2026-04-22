@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cron · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+<style>
+  #expr { font-family: var(--mono); font-size: 16px; letter-spacing: 0.02em; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .presets button { font-family: var(--mono); font-size: 12px; padding: 4px 8px; }
+  .field-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .field-table th, .field-table td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+  .field-table th { color: var(--muted); font-weight: 500; }
+  .field-table code { font-family: var(--mono); }
+  #explainLine { font-size: 15px; margin-top: 4px; }
+  .next-list { font-family: var(--mono); font-size: 13px; list-style: none; padding: 0; margin: 0; }
+  .next-list li { padding: 4px 0; border-bottom: 1px dashed var(--border); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>Cron explainer</h1>
+  <p class="subtitle">Standard 5-field Unix cron (<code>minute hour day-of-month month day-of-week</code>). Describes the expression and lists the next fire times in your local timezone.</p>
+
+  <div class="panel">
+    <label class="field" style="margin-bottom:10px">
+      Expression
+      <input id="expr" type="text" value="*/5 * * * *" spellcheck="false">
+    </label>
+    <div class="presets" style="margin-bottom:10px">
+      <button class="btn" data-set="* * * * *">every minute</button>
+      <button class="btn" data-set="*/5 * * * *">every 5 min</button>
+      <button class="btn" data-set="0 * * * *">hourly</button>
+      <button class="btn" data-set="0 0 * * *">daily midnight</button>
+      <button class="btn" data-set="0 9 * * 1-5">weekdays 09:00</button>
+      <button class="btn" data-set="0 0 1 * *">monthly 1st</button>
+      <button class="btn" data-set="15 10 * * 0">Sunday 10:15</button>
+      <button class="btn" data-set="0 0 1 1 *">yearly Jan 1</button>
+    </div>
+    <div id="explainLine" class="status"></div>
+  </div>
+
+  <div class="panel" id="fieldPanel" hidden>
+    <h2 style="margin-top:0">Fields</h2>
+    <table class="field-table" id="fieldTable"></table>
+  </div>
+
+  <div class="panel" id="nextPanel" hidden>
+    <h2 style="margin-top:0">Next 10 fire times</h2>
+    <ul class="next-list" id="nextList"></ul>
+    <div class="status" id="nextStatus" style="margin-top:8px"></div>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const expr = $('#expr'), explainLine = $('#explainLine');
+  const fieldPanel = $('#fieldPanel'), fieldTable = $('#fieldTable');
+  const nextPanel = $('#nextPanel'), nextList = $('#nextList'), nextStatus = $('#nextStatus');
+
+  const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const DAYS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  function resolveName(tok, names) {
+    if (/^-?\d+$/.test(tok)) return parseInt(tok, 10);
+    if (!names) throw new Error(`expected number, got "${tok}"`);
+    const i = names.indexOf(tok.toUpperCase());
+    if (i < 0) throw new Error(`unknown name "${tok}"`);
+    return i + (names === MONTHS ? 1 : 0);
+  }
+
+  function parseField(str, min, max, names) {
+    const values = new Set();
+    for (const part of str.split(',')) {
+      let rangePart = part, step = 1;
+      const slash = part.indexOf('/');
+      if (slash >= 0) {
+        rangePart = part.slice(0, slash) || '*';
+        step = parseInt(part.slice(slash + 1), 10);
+        if (!(step > 0)) throw new Error(`invalid step in "${part}"`);
+      }
+      let lo, hi;
+      if (rangePart === '*') { lo = min; hi = max; }
+      else if (rangePart.includes('-')) {
+        const [a, b] = rangePart.split('-');
+        lo = resolveName(a, names);
+        hi = resolveName(b, names);
+      } else {
+        lo = hi = resolveName(rangePart, names);
+      }
+      if (names === DAYS && lo === 7) lo = 0;
+      if (names === DAYS && hi === 7) hi = 0;
+      if (lo < min || hi > max || lo > hi) throw new Error(`out of range "${part}" (${min}-${max})`);
+      for (let v = lo; v <= hi; v += step) values.add(v);
+    }
+    return Array.from(values).sort((a, b) => a - b);
+  }
+
+  function parseCron(input) {
+    const parts = input.trim().split(/\s+/);
+    if (parts.length !== 5) throw new Error(`expected 5 fields, got ${parts.length}`);
+    const [m, h, dom, mon, dow] = parts;
+    return {
+      raw: parts,
+      minute: parseField(m, 0, 59),
+      hour: parseField(h, 0, 23),
+      dom: parseField(dom, 1, 31),
+      month: parseField(mon, 1, 12, MONTHS),
+      dow: parseField(dow, 0, 6, DAYS),
+      domIsStar: dom === '*',
+      dowIsStar: dow === '*',
+    };
+  }
+
+  function matches(c, d) {
+    if (!c.minute.includes(d.getMinutes())) return false;
+    if (!c.hour.includes(d.getHours())) return false;
+    if (!c.month.includes(d.getMonth() + 1)) return false;
+    const domOk = c.dom.includes(d.getDate());
+    const dowOk = c.dow.includes(d.getDay());
+    if (c.domIsStar || c.dowIsStar) return domOk && dowOk;
+    return domOk || dowOk;
+  }
+
+  function nextN(c, from, n) {
+    const out = [];
+    const d = new Date(from);
+    d.setSeconds(0, 0);
+    d.setMinutes(d.getMinutes() + 1);
+    const limit = 60 * 24 * 366 * 4;
+    for (let i = 0; i < limit && out.length < n; i++) {
+      if (matches(c, d)) out.push(new Date(d));
+      d.setMinutes(d.getMinutes() + 1);
+    }
+    return out;
+  }
+
+  function isFull(arr, min, max) { return arr.length === (max - min + 1); }
+  function isEvery(arr, min, max, step) {
+    if (arr.length !== Math.floor((max - min) / step) + 1) return false;
+    for (let i = 0; i < arr.length; i++) if (arr[i] !== min + i * step) return false;
+    return true;
+  }
+  function detectStep(arr, min, max) {
+    if (arr.length < 2) return null;
+    const step = arr[1] - arr[0];
+    if (step < 2) return null;
+    if (isEvery(arr, min, max, step)) return step;
+    return null;
+  }
+  function listify(arr, names, offset) {
+    const off = offset || 0;
+    return arr.map(v => names ? names[v - off] : String(v)).join(', ');
+  }
+  function hhmm(h, m) { return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
+
+  function describeTime(c, minuteFull, hourFull) {
+    if (minuteFull && hourFull) return 'Every minute';
+    const mStep = !minuteFull ? detectStep(c.minute, 0, 59) : null;
+    if (mStep && hourFull && c.minute[0] === 0) return `Every ${mStep} minutes`;
+    if (c.minute.length === 1 && hourFull) return `At minute ${c.minute[0]} of every hour`;
+    if (c.minute.length === 1 && c.hour.length === 1) return `At ${hhmm(c.hour[0], c.minute[0])}`;
+    if (c.minute.length === 1 && c.hour.length > 1) {
+      const hStep = detectStep(c.hour, 0, 23);
+      if (hStep) return `At minute ${c.minute[0]} past every ${hStep} hour(s)`;
+      return `At minute ${c.minute[0]} past hours ${listify(c.hour)}`;
+    }
+    if (minuteFull) return `Every minute of hour ${listify(c.hour)}`;
+    return `At minute(s) ${listify(c.minute)} of hour(s) ${listify(c.hour)}`;
+  }
+
+  const MONTH_NAMES_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function describe(c) {
+    const minuteFull = isFull(c.minute, 0, 59);
+    const hourFull = isFull(c.hour, 0, 23);
+    const domFull = isFull(c.dom, 1, 31);
+    const monthFull = isFull(c.month, 1, 12);
+    const dowFull = isFull(c.dow, 0, 6);
+    const time = describeTime(c, minuteFull, hourFull);
+
+    const mods = [];
+    if (!domFull && !dowFull) {
+      mods.push(`on day ${listify(c.dom)} of the month or on ${listify(c.dow, DAY_NAMES)}`);
+    } else if (!domFull) {
+      mods.push(`on day ${listify(c.dom)} of the month`);
+    } else if (!dowFull) {
+      const compact = c.dow.length <= 3 || detectStep(c.dow, 0, 6);
+      mods.push(`on ${listify(c.dow, compact ? DAY_NAMES : DAYS)}`);
+    }
+    if (!monthFull) mods.push(`in ${listify(c.month, MONTH_NAMES_FULL, 1)}`);
+
+    const suffix = mods.length ? ', ' + mods.join(', ') : ', every day';
+    return time + suffix + '.';
+  }
+
+  function render() {
+    fieldPanel.hidden = true; nextPanel.hidden = true;
+    explainLine.textContent = '';
+    explainLine.className = 'status';
+    const raw = expr.value;
+    if (!raw.trim()) return;
+    let c;
+    try { c = parseCron(raw); }
+    catch (e) { explainLine.textContent = 'Error: ' + e.message; explainLine.classList.add('err'); return; }
+
+    explainLine.textContent = describe(c);
+    explainLine.classList.add('ok');
+
+    fieldTable.innerHTML = `
+      <thead><tr><th>Field</th><th>Raw</th><th>Matches</th></tr></thead>
+      <tbody>
+        <tr><td>Minute (0-59)</td><td><code>${escapeHtml(c.raw[0])}</code></td><td>${c.minute.length} value(s)</td></tr>
+        <tr><td>Hour (0-23)</td><td><code>${escapeHtml(c.raw[1])}</code></td><td>${c.hour.length} value(s)</td></tr>
+        <tr><td>Day of month (1-31)</td><td><code>${escapeHtml(c.raw[2])}</code></td><td>${c.dom.length} value(s)</td></tr>
+        <tr><td>Month (1-12)</td><td><code>${escapeHtml(c.raw[3])}</code></td><td>${c.month.length} value(s)</td></tr>
+        <tr><td>Day of week (0-6, 0=Sun)</td><td><code>${escapeHtml(c.raw[4])}</code></td><td>${c.dow.length} value(s)</td></tr>
+      </tbody>`;
+    fieldPanel.hidden = false;
+
+    const runs = nextN(c, new Date(), 10);
+    if (!runs.length) {
+      nextList.innerHTML = '<li>No matches within 4 years.</li>';
+    } else {
+      const fmt = new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium', timeStyle: 'short', weekday: 'short'
+      });
+      nextList.innerHTML = runs.map((d, i) => {
+        const diff = Math.round((d - Date.now()) / 60000);
+        const rel = diff < 60 ? `in ${diff} min` : diff < 1440 ? `in ${Math.round(diff/60)} hr` : `in ${Math.round(diff/1440)} day`;
+        return `<li>${String(i+1).padStart(2,' ')}. ${escapeHtml(fmt.format(d))} · <span style="color:var(--muted)">${rel}</span></li>`;
+      }).join('');
+    }
+    nextStatus.textContent = 'Timezone: ' + Intl.DateTimeFormat().resolvedOptions().timeZone;
+    nextPanel.hidden = false;
+  }
+
+  expr.addEventListener('input', render);
+  document.querySelector('.presets').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-set]');
+    if (!b) return;
+    expr.value = b.getAttribute('data-set');
+    render();
+  });
+  render();
+</script>
+</body>
+</html>

@@ -16,10 +16,14 @@ Live at <https://marcokoopai.github.io/>.
 | [Regex](./tools/regex/) | Pattern tester with match highlight and capture groups |
 | [Diff](./tools/diff/) | Line-by-line diff between two texts |
 | [UUID](./tools/uuid/) | Generate UUID v4 in bulk |
+| [Markdown](./tools/markdown/) | Live preview in a sandboxed iframe |
+| [Base converter](./tools/base-converter/) | Bin / oct / dec / hex with BigInt |
+| [QR code](./tools/qrcode/) | Generate and download QR codes |
+| [Cron](./tools/cron/) | Explain expressions and list next fire times |
 
 ## Stack
 
-Pure static HTML + vanilla JS. One folder per tool under `tools/`. Shared styles and helpers live in `assets/`. The only vendored library is `js-yaml` (for the YAML tool), copied to `vendor/`.
+Pure static HTML + vanilla JS. One folder per tool under `tools/`. Shared styles and helpers live in `assets/`. Vendored libraries (`vendor/`): `js-yaml` (YAML tool), `marked` (Markdown tool), `qrcode.js` (QR tool).
 
 ## Local development
 

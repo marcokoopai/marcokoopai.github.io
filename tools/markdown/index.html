@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Markdown · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+<style>
+  .md-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 860px) { .md-split { grid-template-columns: 1fr; } }
+  #mdInput { min-height: 420px; }
+  #mdPreview { width: 100%; min-height: 420px; border: 1px solid var(--border); border-radius: 8px; background: var(--input-bg); }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>Markdown preview</h1>
+  <p class="subtitle">Renders with <a href="https://github.com/markedjs/marked" target="_blank" rel="noopener">marked 4.3.0</a> in a sandboxed iframe (no script execution).</p>
+
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <div class="grow"></div>
+      <button class="btn" id="copyHtml">Copy HTML</button>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <div class="md-split">
+      <textarea id="mdInput" placeholder="# Hello&#10;Type Markdown here…" spellcheck="false"></textarea>
+      <iframe id="mdPreview" sandbox="" title="preview"></iframe>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+</main>
+
+<script src="/vendor/marked.min.js"></script>
+<script src="/assets/js/common.js"></script>
+<script>
+  const input = $('#mdInput'), frame = $('#mdPreview'), status = $('#status');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  marked.use({ breaks: false, gfm: true });
+
+  function readVars() {
+    const s = getComputedStyle(document.documentElement);
+    const names = ['--bg','--fg','--muted','--border','--code-bg','--accent'];
+    return names.map(n => `${n}: ${s.getPropertyValue(n).trim()};`).join(' ');
+  }
+
+  let lastHtml = '';
+  function render() {
+    const src = input.value;
+    const body = src ? marked.parse(src) : '<p style="color:var(--muted)">Preview appears here.</p>';
+    lastHtml = body;
+    const cssVars = readVars();
+    frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><style>
+      :root { ${cssVars} }
+      body { margin: 0; padding: 16px 18px; background: var(--bg); color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+      h1,h2,h3,h4 { letter-spacing: -0.01em; margin-top: 1.2em; }
+      h1 { font-size: 1.6em; } h2 { font-size: 1.3em; } h3 { font-size: 1.1em; }
+      a { color: var(--accent); }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg);
+        padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+      pre { background: var(--code-bg); padding: 12px; border-radius: 8px; overflow: auto;
+        border: 1px solid var(--border); }
+      pre code { background: none; padding: 0; }
+      blockquote { border-left: 3px solid var(--border); margin: 0; padding: 0 12px; color: var(--muted); }
+      table { border-collapse: collapse; }
+      th, td { border: 1px solid var(--border); padding: 6px 10px; }
+      img { max-width: 100%; }
+      hr { border: 0; border-top: 1px solid var(--border); }
+      ul, ol { padding-left: 1.4em; }
+    </style></head><body>${body}</body></html>`;
+    setStatus(src ? input.value.length + ' chars in · ' + body.length + ' chars HTML' : '', 'ok');
+  }
+
+  input.addEventListener('input', render);
+  $('#copyHtml').onclick = () => { if (lastHtml) copyToClipboard(lastHtml); };
+  $('#clear').onclick = () => { input.value = ''; render(); input.focus(); };
+
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base converter · marcokoopai tools</title>
+<script src="/assets/js/theme.js"></script>
+<link rel="stylesheet" href="/assets/css/base.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">marcokoopai · tools</a>
+  <nav class="nav">
+    <a href="/">← Tools</a>
+    <button class="btn ghost" type="button" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
+  </nav>
+</header>
+
+<main class="container">
+  <h1>Base converter</h1>
+  <p class="subtitle">Type in any field; the others update. BigInt-backed, so arbitrarily large values work. Supports negative numbers.</p>
+
+  <div class="panel">
+    <label class="field" style="margin-bottom:12px">
+      Decimal (base 10)
+      <input id="dec" type="text" inputmode="numeric" placeholder="e.g. 255" spellcheck="false">
+    </label>
+    <label class="field" style="margin-bottom:12px">
+      Hex (base 16)
+      <input id="hex" type="text" placeholder="e.g. ff or 0xff" spellcheck="false">
+    </label>
+    <label class="field" style="margin-bottom:12px">
+      Binary (base 2)
+      <input id="bin" type="text" placeholder="e.g. 1111 1111 or 0b11111111" spellcheck="false">
+    </label>
+    <label class="field" style="margin-bottom:12px">
+      Octal (base 8)
+      <input id="oct" type="text" placeholder="e.g. 377 or 0o377" spellcheck="false">
+    </label>
+    <div class="row">
+      <label class="field" style="flex:0 0 auto">
+        <span>Binary grouping</span>
+        <select id="group">
+          <option value="4" selected>groups of 4</option>
+          <option value="8">groups of 8</option>
+          <option value="0">no spaces</option>
+        </select>
+      </label>
+      <div class="grow"></div>
+      <button class="btn ghost" id="clear">Clear</button>
+    </div>
+    <div class="status" id="status" style="margin-top:10px"></div>
+  </div>
+</main>
+
+<script src="/assets/js/common.js"></script>
+<script>
+  const fields = { bin: 2, oct: 8, dec: 10, hex: 16 };
+  const els = { bin: $('#bin'), oct: $('#oct'), dec: $('#dec'), hex: $('#hex') };
+  const status = $('#status'), groupSel = $('#group');
+  const setStatus = (m, c) => { status.textContent = m || ''; status.className = 'status' + (c ? ' ' + c : ''); };
+
+  function stripPrefix(s, base) {
+    s = s.trim().replace(/_/g, '').replace(/\s+/g, '');
+    if (base === 16 && /^0x/i.test(s)) return s.slice(2);
+    if (base === 8 && /^0o/i.test(s)) return s.slice(2);
+    if (base === 2 && /^0b/i.test(s)) return s.slice(2);
+    return s;
+  }
+
+  function parse(raw, base) {
+    if (!raw.trim()) return null;
+    let neg = false, s = raw.trim();
+    if (s.startsWith('-')) { neg = true; s = s.slice(1); }
+    s = stripPrefix(s, base);
+    if (!s) throw new Error('empty');
+    const re = { 2: /^[01]+$/, 8: /^[0-7]+$/, 10: /^\d+$/, 16: /^[0-9a-fA-F]+$/ }[base];
+    if (!re.test(s)) throw new Error(`invalid ${base === 16 ? 'hex' : base === 2 ? 'binary' : base === 8 ? 'octal' : 'decimal'}`);
+    const bi = BigInt(base === 10 ? s : (base === 2 ? '0b' : base === 8 ? '0o' : '0x') + s);
+    return neg ? -bi : bi;
+  }
+
+  function group(s, n) {
+    if (!n) return s;
+    const parts = [];
+    for (let i = s.length; i > 0; i -= n) parts.unshift(s.slice(Math.max(0, i - n), i));
+    return parts.join(' ');
+  }
+
+  function format(bi, base) {
+    if (bi === null) return '';
+    const neg = bi < 0n;
+    let s = (neg ? -bi : bi).toString(base);
+    if (base === 16) s = s.toUpperCase();
+    if (base === 2) s = group(s, parseInt(groupSel.value, 10));
+    return (neg ? '-' : '') + s;
+  }
+
+  function sync(from) {
+    try {
+      const val = parse(els[from].value, fields[from]);
+      for (const k of Object.keys(els)) {
+        if (k === from) continue;
+        els[k].value = format(val, fields[k]);
+      }
+      if (val === null) setStatus('');
+      else {
+        const bi = val < 0n ? -val : val;
+        const bits = bi === 0n ? 0 : bi.toString(2).length;
+        setStatus(`${val.toString()} · ${bits} bit${bits === 1 ? '' : 's'}`, 'ok');
+      }
+    } catch (e) {
+      for (const k of Object.keys(els)) if (k !== from) els[k].value = '';
+      setStatus('Error (' + from + '): ' + e.message, 'err');
+    }
+  }
+
+  for (const k of Object.keys(els)) {
+    els[k].addEventListener('input', () => sync(k));
+  }
+  groupSel.addEventListener('change', () => {
+    if (els.dec.value) sync('dec');
+  });
+  $('#clear').onclick = () => {
+    for (const k of Object.keys(els)) els[k].value = '';
+    setStatus('');
+    els.dec.focus();
+  };
+</script>
+</body>
+</html>
